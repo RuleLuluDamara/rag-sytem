@@ -13,3 +13,6 @@ data/
 # Local tooling
 .claude/
 *.tmp
+
+# Office lock files
+~$*
