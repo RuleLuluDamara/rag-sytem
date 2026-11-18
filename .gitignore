@@ -1,0 +1,15 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets
+.env
+
+# Generated data (documents, page images, crops, indexes)
+data/
+
+# Local tooling
+.claude/
+*.tmp

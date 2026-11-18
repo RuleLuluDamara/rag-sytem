@@ -1,0 +1,11 @@
+# Python 3.10+ (tested on 3.11, CPU only)
+pymupdf==2.1
+opencv-python-headless==5.1.0.95
+rapidocr==3.10.0
+onnxruntime==1.32.0
+fastembed==0.9.1
+rank-bm25==0.2.2
+numpy==2.4.6
+pillow==13.0.0
+requests==2.34.2
+streamlit==1.67.0
