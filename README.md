@@ -163,7 +163,8 @@ described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - CPU speed: about 5–10 s per page for OCR and detection, plus 2–7 s per visual element for Gemini.
 - Table extraction targets **ruled** tables (the norm in regulations and their *lampiran*);
-  borderless tables fall back to row text, or to Gemini's transcription.
+  a table is detected when its ruling lines join into a frame or grid. Tables with only
+  horizontal rules, or no rules at all, are not recognised as tables: their text is indexed row by row.
 - Detection is heuristic (OpenCV), tuned on typical Indonesian scans. Check the
   *Jelajahi dokumen* tab on your own documents and adjust thresholds in `vision.py` if needed.
 - Pages scanned sideways or upside down (90°/180°) are not auto-rotated; only small skew is corrected.
