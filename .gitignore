@@ -9,6 +9,9 @@ __pycache__/
 
 # Generated data (documents, page images, crops, indexes)
 data/
+docs/
+scripts/
+test/
 
 # Local tooling
 .claude/
