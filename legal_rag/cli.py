@@ -1,9 +1,3 @@
-"""Command-line helpers.
-
-    python -m legal_rag.cli ingest path/to/*.pdf
-    python -m legal_rag.cli ask "Berapa tarif retribusi untuk hotel?"
-    python -m legal_rag.cli list
-"""
 from __future__ import annotations
 
 import argparse
@@ -23,6 +17,14 @@ def main(argv: list[str] | None = None) -> int:
     pa.add_argument("-k", type=int, default=None)
     pa.add_argument("--sources-only", action="store_true")
     sub.add_parser("list")
+    pe = sub.add_parser("eval", help="evaluate against a ground-truth CSV (id,question,answer,source,category)")
+    pe.add_argument("csv")
+    pe.add_argument("--doc", help="restrict search to this doc_id")
+    pe.add_argument("-k", type=int, default=6)
+    pe.add_argument("--retrieval-only", action="store_true", help="skip answers (no Gemini calls)")
+    pe.add_argument("--judge", action="store_true", help="also score answers with Gemini as judge")
+    pe.add_argument("--limit", type=int, default=None)
+    pe.add_argument("--out", default="eval/results/hasil", help="output prefix for .csv and .md")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     for noisy in ("httpx", "huggingface_hub", "urllib3"):
@@ -56,6 +58,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n\n— mode: {ans.mode} {ans.model}")
         for i, h in enumerate(ans.hits, 1):
             print(f"[{i}] {h.chunk['kind']} hlm {h.chunk['pages']} — {h.chunk['context']}")
+    elif args.cmd == "eval":
+        from .evaluate import evaluate, summarize, write_outputs
+        results = evaluate(args.csv, doc_id=args.doc, k=args.k, answers=not args.retrieval_only,
+                           use_judge=args.judge, limit=args.limit)
+        csv_path, md_path = write_outputs(results, args.out, args.csv, args.doc, args.k)
+        print(json.dumps(summarize(results, args.k), indent=1))
+        print(f"\nhasil: {csv_path}\nlaporan: {md_path}")
     return 0
 
 

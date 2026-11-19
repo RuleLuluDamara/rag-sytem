@@ -1,11 +1,3 @@
-"""Google Gemini client (text + vision) via Gemini's OpenAI-compatible endpoint.
-
-Gemini is optional: callers check :func:`is_configured` and fall back to non-LLM
-behaviour (heuristic element descriptions, extractive answers) when no key is set.
-
-Messages use one internal shape — ``{"role", "content": str, "images": [base64 PNG]}`` —
-converted here to the OpenAI wire format.
-"""
 from __future__ import annotations
 
 import base64
@@ -37,9 +29,7 @@ def unavailable_reason() -> str:
     return "GEMINI_API_KEY belum diisi di file .env."
 
 
-# --------------------------------------------------------------------------- images
 def encode_image(img: np.ndarray | str, max_side: int = 1024) -> str:
-    """Base64-encode a BGR array or an image file path as PNG."""
     if isinstance(img, str):
         img = cv2.imread(img)
     h, w = img.shape[:2]
@@ -50,7 +40,6 @@ def encode_image(img: np.ndarray | str, max_side: int = 1024) -> str:
     return base64.b64encode(buf.tobytes()).decode()
 
 
-# --------------------------------------------------------------------------- chat
 def _to_openai(messages: list[dict]) -> list[dict]:
     out = []
     for m in messages:
@@ -83,7 +72,6 @@ def _raise_for_status(r: requests.Response) -> None:
 
 def chat(messages: list[dict], stream: bool = False, temperature: float = 0.1,
          timeout: int = 300, retries: int = 4) -> Iterator[str] | str:
-    """Chat completion. Returns the text, or a generator of text pieces when ``stream``."""
     if not is_configured():
         raise RuntimeError(unavailable_reason())
     payload = {"model": settings.gemini_model, "messages": _to_openai(messages), "stream": stream,
@@ -125,7 +113,6 @@ def chat(messages: list[dict], stream: bool = False, temperature: float = 0.1,
     return pieces()
 
 
-# --------------------------------------------------------------------------- captions
 CAPTION_PROMPTS = {
     "table": ("Ini adalah tabel dari dokumen hukum Indonesia hasil pindaian. Salin isi tabel secara "
               "lengkap dan persis dalam format tabel Markdown. Jangan menambahkan penjelasan."),
@@ -141,7 +128,6 @@ CAPTION_PROMPTS = {
 
 
 def caption_element(kind: str, crop_bgr: np.ndarray, context: str = "") -> str | None:
-    """Describe a cropped visual element with Gemini; ``None`` if disabled or it fails."""
     if not (settings.caption_with_vlm and is_configured()):
         return None
     prompt = CAPTION_PROMPTS[kind]

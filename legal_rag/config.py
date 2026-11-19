@@ -1,8 +1,3 @@
-"""Runtime settings.
-
-Every value can be overridden with an environment variable, or with a ``KEY=value`` line
-in the project's ``.env`` file (real environment variables take precedence).
-"""
 from __future__ import annotations
 
 import os
@@ -39,21 +34,19 @@ def _env_bool(name: str, default: bool) -> bool:
 
 @dataclass
 class Settings:
-    # Where processed documents (page images, crops, chunks, embeddings) are stored.
+    # Load Env
     data_dir: Path = field(default_factory=lambda: Path(_env("LEGALRAG_DATA_DIR", "data/store")))
 
     # Rendering / OCR
     dpi: int = int(_env("LEGALRAG_DPI", "200"))
-    ocr_lang: str = _env("LEGALRAG_OCR_LANG", "latin")          # PP-OCRv5 Latin covers Indonesian
+    ocr_lang: str = _env("LEGALRAG_OCR_LANG", "latin")        
     min_ocr_conf: float = float(_env("LEGALRAG_MIN_OCR_CONF", "0.6"))
     text_layer_min_chars: int = int(_env("LEGALRAG_TEXT_LAYER_MIN_CHARS", "80"))  # skip OCR above this
 
     # Embeddings (fastembed / ONNX on CPU), multilingual so Indonesian works.
     embed_model: str = _env("LEGALRAG_EMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
-    # Google Gemini (multimodal): reads visual elements during ingestion and writes answers.
-    # Called through Gemini's OpenAI-compatible endpoint. Without a key the pipeline still
-    # works: visual elements get heuristic descriptions and answers are cited extracts.
+    # Gemini API
     gemini_api_key: str = field(default_factory=lambda: _env("GEMINI_API_KEY", _env("GOOGLE_API_KEY", "")))
     gemini_model: str = _env("GEMINI_MODEL", "gemini-3.5-flash-lite")
     gemini_base_url: str = _env("GEMINI_BASE_URL",

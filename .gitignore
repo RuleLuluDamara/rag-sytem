@@ -1,21 +1,16 @@
-# Python
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 
-# Secrets
 .env
 
-# Generated data (documents, page images, crops, indexes)
 data/
 docs/
 scripts/
 test/
 
-# Local tooling
 .claude/
 *.tmp
 
-# Office lock files
 ~$*

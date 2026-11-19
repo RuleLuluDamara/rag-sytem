@@ -39,6 +39,7 @@ flowchart LR
 | Index & retrieval | `legal_rag/index.py` | fastembed multilingual MiniLM (ONNX) + BM25, fused with reciprocal-rank fusion; exact boosts for "Pasal 3"/"BAB II"; boosts for stamp/signature/table/figure questions. |
 | Answering | `legal_rag/rag.py` | Prompt with numbered sources; crops of retrieved visual elements attached; extractive fallback. |
 | UI | `app.py` | Streamlit: upload & process PDFs, chat with cited sources (crop + highlighted page), per-page inspector of OCR and detected elements. |
+| Evaluation | `legal_rag/evaluate.py` | Runs a ground-truth CSV through retrieval and answering; reports hit@k, MRR, keyword recall, citation correctness and a Gemini-judge score. |
 
 ## Setup
 
@@ -85,31 +86,97 @@ python -m legal_rag.cli ask "Apa isi Pasal 4?" --sources-only
 python -m legal_rag.cli list
 ```
 
-## Test
+## Test (evaluation against ground truth)
 
-```bash
-pip install -r requirements-dev.txt
-pytest -v
-```
+The pipeline is evaluated on a real regulation, **Peraturan Presiden Nomor 76 Tahun 2013 tentang
+Pengelolaan Pengaduan Pelayanan Publik** (14 pages), with a ground-truth file of 52 questions:
+[`eval/ground_truth_perpres_76_2013.csv`](eval/ground_truth_perpres_76_2013.csv).
 
-| Test file | Covers | Needs |
+| Column | Content |
+|---|---|
+| `id` | question id, e.g. `GT001` |
+| `question` | the question |
+| `answer` | the correct answer according to the document |
+| `source` | where the answer is, e.g. `Pasal 7 ayat (1)-(3), halaman 6` or `Bagian Mengingat, halaman 1` |
+| `category` | question type, e.g. `definisi`, `mekanisme`, `batas_waktu` |
+
+### Steps
+
+1. **Ingest the PDF.** The document id is the first 12 characters of the file's SHA-1, so the
+   same PDF always gets the same id (`322882ba82ce` for this file):
+
+   ```bash
+   python -m legal_rag.cli ingest "path/to/Perpres 76 2013.pdf"
+   python -m legal_rag.cli list
+   ```
+
+2. **Retrieval only** (fast, no Gemini calls, no quota used):
+
+   ```bash
+   python -m legal_rag.cli eval eval/ground_truth_perpres_76_2013.csv --doc 322882ba82ce --retrieval-only --out eval/results/perpres_76_2013_retrieval
+   ```
+
+3. **Full evaluation**: retrieval + Gemini answers + Gemini as judge (needs `GEMINI_API_KEY`; about
+   104 Gemini calls, several minutes on the free tier because of rate limits):
+
+   ```bash
+   python -m legal_rag.cli eval eval/ground_truth_perpres_76_2013.csv --doc 322882ba82ce --judge --out eval/results/perpres_76_2013
+   ```
+
+   Options: `-k` (sources per question, default 6), `--limit N` (first N questions only, useful
+   for a quick check), `--out` (output prefix).
+
+4. **Read the results**: `eval/results/perpres_76_2013.md` has the summary and a per-question
+   table; `eval/results/perpres_76_2013.csv` has every question with the system's full answer and
+   the judge's reason.
+
+### What is measured
+
+| Level | Metric | How |
 |---|---|---|
-| `tests/test_units.py` | tokenizer, Roman numerals, OCR row merging, table grid → Markdown, stamp-ring de-duplication, Gemini request/error format | nothing |
-| `tests/test_structure.py` | metadata extraction, BAB/Pasal chunking, OCR "Pasal l" → "Pasal 1", ayat splitting, visual-element chunks | nothing |
-| `tests/test_pipeline.py` | **end to end**: generates a scanned sample, runs OCR + vision + indexing, checks metadata, the four element types, the extracted table and 9 retrieval questions; extractive fallback | ~30 s CPU |
-| `tests/test_pipeline.py::test_gemini_answer_live` | real Gemini answer on the sample | `GEMINI_API_KEY` (skipped otherwise) |
+| Retrieval | hit@1, hit@3, hit@6, MRR | `source` is parsed into the expected Pasal (or section such as Mengingat). A result counts if its chunk comes from that Pasal. MRR = mean of 1 / rank of the first correct result. |
+| Retrieval | page (exact / ±1) | whether the expected page is among the top results; informational, because the ground truth's page numbers are mostly one lower than the PDF page index |
+| Answer | keyword recall | share of the reference answer's key words (stop words removed) found in the system's answer |
+| Answer | correct citation | the answer cites `[n]` and a cited source is from the expected Pasal/section |
+| Answer | Gemini judge (0–2) | Gemini compares the system's answer with the reference: 2 correct, 1 partial, 0 wrong |
 
-### Try it by hand with the synthetic sample
+### Results
 
-```bash
-python scripts/make_sample_pdf.py data/samples/contoh_perda.pdf
-python -m legal_rag.cli ingest data/samples/contoh_perda.pdf
-python scripts/eval_retrieval.py                 # expected: 9/9 top-1 correct
-python -m legal_rag.cli ask "Siapa yang menandatangani dan apa tulisan pada stempelnya?"
-```
+Run of 2026-11-19 on `322882ba82ce` (52 questions, top-k 6, `gemini-3.5-flash-lite`):
 
-The sample is a 2-page image-only *Peraturan Daerah* with skew, scan noise, a logo, a ruled tariff
-table, a blue round stamp with curved text and a signature.
+| Metric | Value |
+|---|---|
+| Retrieval hit@1 / hit@3 / hit@6 | 63% / 79% / 87% |
+| MRR | 0.72 |
+| Expected page in top-6 (exact / ±1 page) | 75% / 96% |
+| Answer keyword recall | 84% |
+| Answers with a `[n]` citation | 98% |
+| Citation points to the expected Pasal/section | 87% |
+| Gemini judge: correct / partial / wrong | 43 / 2 / 5 (50 judged; 2 judge calls timed out) |
+| Answer time, median / slowest | 9.7 s / 237 s (Gemini was returning 503 "overloaded") |
+
+What the run shows:
+
+- **Retrieval is the bottleneck.** 6 of the 7 wrong or partial answers are questions whose
+  source never reached the top 6, so Gemini never saw it. When the source is retrieved, the answer
+  is almost always correct.
+- **This PDF ships its own (old) OCR text layer**, which the pipeline uses instead of running OCR.
+  That layer has misreadings ("PRESIOEN", "BABI"), many one-word lines and lines out of reading
+  order (page 1 starts with "tclah ... 2. Undang-Undang" and ends with "Mengingat / Menimbang").
+  Text-layer lines are not re-ordered (`merge_rows` only runs on OCR'd pages), so the Mengingat
+  section is scattered and GT001 is not found.
+- **Section labels go wrong**: the word "memperhatikan" at the start of a line inside Pasal 8 is
+  taken as the *Memperhatikan* heading, so Pasal 8–19 carry that label (Pasal numbers stay correct).
+- **Metadata is wrong** for this file (type empty, number/year read as 125/2004), so the document
+  title in every chunk is just the file name.
+- **Ground-truth page numbers** are mostly one lower than the PDF page index, which is why the page
+  check is reported both exact and ±1 and is not used for pass/fail.
+- One answer (GT001) was cut off mid-sentence; re-running it gave a complete answer, so the stream
+  most likely dropped while Gemini was overloaded.
+
+The evaluation code is in [`legal_rag/evaluate.py`](legal_rag/evaluate.py); the `eval` command is
+in `legal_rag/cli.py`. To evaluate another document, write a CSV with the same five columns, ingest
+the PDF, and pass its id with `--doc`.
 
 ## Configuration
 
@@ -140,11 +207,11 @@ legal_rag/
   ingest.py             ingestion pipeline and on-disk store
   index.py              hybrid retrieval (dense + BM25 + structural boosts)
   rag.py                prompt building, multimodal answering, extractive fallback
-  cli.py                command line
-scripts/
-  make_sample_pdf.py    synthetic scanned Perda for testing
-  eval_retrieval.py     retrieval check (9 questions)
-tests/                  pytest suite
+  evaluate.py           evaluation against a ground-truth CSV
+  cli.py                command line: ingest, ask, list, eval
+eval/
+  ground_truth_perpres_76_2013.csv   52 questions with answers and sources
+  results/              evaluation outputs (.csv per question, .md summary)
 docs/
   ARCHITECTURE.md       production scaling and deployment
   architecture.svg      production architecture diagram
@@ -153,11 +220,35 @@ docs/
 
 ## Production architecture
 
-How this would be scaled and deployed (event-driven ingestion workers, stateless query service,
-Postgres + pgvector, Vertex AI Gemini in the Jakarta region, CI/CD and evaluation gates) is
-described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Full design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ![Production architecture](docs/architecture.svg)
+
+Two paths that scale independently:
+
+- **Ingestion (asynchronous):** Upload API (with official JDIH metadata) → Pub/Sub, one task per
+  page → **page workers** (text-layer quality gate, deskew, OCR, OpenCV elements) → **caption
+  workers** (Gemini, shared rate limiter) → **index workers** (BAB/Pasal chunking, embeddings) →
+  PostgreSQL + pgvector and object storage. About 20,000 pages/hour with 50 workers.
+- **Query (synchronous, p95 < 5 s to first token):** API gateway (OAuth, rate limits) → stateless
+  FastAPI **query service**: hybrid retrieval → top-20 → **re-ranker** → top-6 → Vertex AI Gemini in
+  the Jakarta region, streamed with citations; incomplete streams are retried.
+- **Operations:** an evaluation gate in CI (`cli eval --retrieval-only` on every pull request, the
+  full judged run nightly, judge model ≠ answering model), Secret Manager, tracing and cost
+  metrics, data kept in the Jakarta region.
+
+### What the first evaluation changed
+
+The Perpres 76/2013 evaluation (see [Test](#test-evaluation-against-ground-truth)) added these to
+the design:
+
+| Finding | Architecture change |
+|---|---|
+| 6 of 7 wrong answers had their source outside the top 6 (hit@1 63%, hit@6 87%) | wider candidate pool (top-20) and a re-ranking stage |
+| the PDF's own old OCR layer was scrambled and full of misreadings | text-layer quality gate per page: reuse, re-order, or re-OCR |
+| title-block metadata was misread (number/year 125/2004) | official metadata from the JDIH import, parsing only as fallback |
+| one answer was cut off while Gemini returned 503 | retry streams that end without a finish marker; fallback model; provisioned throughput |
+| the same model answered and judged | a different, stronger judge model plus periodic human review |
 
 ## Limits
 

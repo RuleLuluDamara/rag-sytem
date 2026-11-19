@@ -1,4 +1,3 @@
-"""Answer generation over retrieved text + visual evidence."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -61,7 +60,6 @@ def answer(index: Index, question: str, history: list[dict] | None = None,
     if not llm.is_configured():
         return Answer(_extractive(hits, llm.unavailable_reason()), hits, "extractive")
 
-    # Multimodal: crops of visual elements among the top sources are sent with the question.
     images, img_note = [], ""
     if settings.answer_with_images:
         visual = [h for h in hits[:3] if h.chunk["kind"] != "text" and h.chunk.get("image")]

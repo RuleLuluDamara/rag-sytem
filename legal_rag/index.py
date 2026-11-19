@@ -1,5 +1,4 @@
-"""Hybrid retrieval: multilingual dense embeddings + BM25, fused with RRF,
-plus exact structural matching for references like "Pasal 3" / "BAB II"."""
+
 from __future__ import annotations
 
 import json
@@ -48,7 +47,6 @@ def tokenize(text: str) -> list[str]:
 
 
 def roman(s: str) -> str:
-    """'III' → '3'; digits pass through."""
     s = s.strip().lower()
     if s.isdigit():
         return s
@@ -68,7 +66,6 @@ class Hit:
 
 
 class Index:
-    """In-memory index over every ingested document."""
 
     def __init__(self):
         self.chunks: list[dict] = []

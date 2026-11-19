@@ -48,9 +48,10 @@
   <rect x="444" y="135" width="360" height="150" rx="8" class="bq"/>
   <text x="458" y="160" class="t">Query service</text>
   <text x="458" y="182" class="l">FastAPI · stateless · autoscaled (Cloud Run / GKE)</text>
-  <text x="458" y="206" class="l">• hybrid retrieval: vectors + BM25 + Pasal boosts</text>
+  <text x="458" y="206" class="l">• hybrid retrieval → top-20 → re-rank → top-6</text>
   <text x="458" y="228" class="l">• attach crops of retrieved visual elements</text>
   <text x="458" y="250" class="l">• Gemini answer + citations, streamed (SSE)</text>
+  <text x="458" y="272" class="l">• retry if the stream ends without finishing</text>
 
   <!-- ingestion path -->
   <rect x="34" y="400" width="180" height="110" rx="8" class="bi"/>
@@ -61,14 +62,14 @@
   <rect x="234" y="400" width="190" height="110" rx="8" class="bi"/>
   <text x="248" y="426" class="t">Upload API</text>
   <text x="248" y="448" class="l">signed URL → object storage</text>
-  <text x="248" y="467" class="l">dedupe by SHA-1 · enqueue</text>
+  <text x="248" y="467" class="l">JDIH metadata · dedupe</text>
 
   <rect x="444" y="370" width="360" height="50" rx="8" class="bi"/>
   <text x="458" y="401" class="t">Pub/Sub · document.uploaded → page tasks</text>
 
   <rect x="444" y="435" width="360" height="95" rx="8" class="bi"/>
   <text x="458" y="458" class="t">Page workers · CPU pool, autoscale on lag</text>
-  <text x="458" y="481" class="l">render 200 DPI · deskew · RapidOCR PP-OCRv5</text>
+  <text x="458" y="481" class="l">text-layer gate: reuse · re-order · re-OCR</text>
   <text x="458" y="501" class="l">OpenCV: tables · stamps · signatures · figures</text>
 
   <rect x="444" y="545" width="360" height="70" rx="8" class="bi"/>
@@ -132,7 +133,7 @@
   <!-- platform & operations -->
   <rect x="34" y="805" width="256" height="115" rx="8" class="bo"/>
   <text x="48" y="830" class="t">CI/CD</text>
-  <text x="48" y="853" class="l">GitHub Actions: pytest + eval</text>
+  <text x="48" y="853" class="l">GitHub Actions: eval gate per PR</text>
   <text x="48" y="872" class="l">images → Artifact Registry</text>
   <text x="48" y="891" class="l">blue/green deploy</text>
 
@@ -146,13 +147,13 @@
   <text x="584" y="830" class="t">Observability</text>
   <text x="584" y="853" class="l">logs · metrics · traces</text>
   <text x="584" y="872" class="l">latency, OCR confidence, cost/query</text>
-  <text x="584" y="891" class="l">alerts on queue lag and 429s</text>
+  <text x="584" y="891" class="l">alerts: queue lag, 503s, cut streams</text>
 
   <rect x="838" y="805" width="256" height="115" rx="8" class="bo"/>
-  <text x="852" y="830" class="t">Quality loop</text>
-  <text x="852" y="853" class="l">golden Q&amp;A set on every release</text>
-  <text x="852" y="872" class="l">retrieval hit@k, citation checks</text>
-  <text x="852" y="891" class="l">user feedback → re-labelling</text>
+  <text x="852" y="830" class="t">Evaluation</text>
+  <text x="852" y="853" class="l">golden set per document type</text>
+  <text x="852" y="872" class="l">hit@k · MRR · citations · judge</text>
+  <text x="852" y="891" class="l">judge model ≠ answering model</text>
 
   <rect x="1106" y="805" width="256" height="115" rx="8" class="bo"/>
   <text x="1120" y="830" class="t">Security &amp; compliance</text>

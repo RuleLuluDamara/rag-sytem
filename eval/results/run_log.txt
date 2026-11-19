@@ -1,0 +1,75 @@
+Gemini HTTP 503, retrying in 5s
+Gemini HTTP 503, retrying in 5s
+[1/52] GT001 rank=None recall=0.29 judge=0
+[2/52] GT002 rank=1 recall=0.86 judge=2
+[3/52] GT003 rank=5 recall=1.00 judge=2
+[4/52] GT004 rank=1 recall=1.00 judge=2
+[5/52] GT005 rank=1 recall=1.00 judge=2
+[6/52] GT006 rank=1 recall=1.00 judge=2
+[7/52] GT007 rank=5 recall=0.50 judge=2
+[8/52] GT008 rank=1 recall=1.00 judge=2
+[9/52] GT009 rank=2 recall=0.95 judge=2
+[10/52] GT010 rank=1 recall=0.81 judge=2
+[11/52] GT011 rank=2 recall=0.91 judge=2
+[12/52] GT012 rank=2 recall=0.93 judge=2
+[13/52] GT013 rank=3 recall=1.00 judge=2
+[14/52] GT014 rank=1 recall=0.85 judge=2
+[15/52] GT015 rank=1 recall=1.00 judge=2
+[16/52] GT016 rank=1 recall=1.00 judge=2
+[17/52] GT017 rank=1 recall=0.94 judge=2
+[18/52] GT018 rank=2 recall=0.95 judge=2
+[19/52] GT019 rank=1 recall=1.00 judge=2
+[20/52] GT020 rank=3 recall=1.00 judge=2
+[21/52] GT021 rank=1 recall=1.00 judge=2
+[22/52] GT022 rank=1 recall=1.00 judge=2
+[23/52] GT023 rank=None recall=0.14 judge=None
+[24/52] GT024 rank=1 recall=1.00 judge=2
+[25/52] GT025 rank=1 recall=0.73 judge=2
+[26/52] GT026 rank=None recall=0.50 judge=0
+[27/52] GT027 rank=1 recall=0.91 judge=2
+[28/52] GT028 rank=4 recall=0.73 judge=2
+[29/52] GT029 rank=4 recall=1.00 judge=2
+[30/52] GT030 rank=1 recall=1.00 judge=2
+[31/52] GT031 rank=1 recall=1.00 judge=2
+[32/52] GT032 rank=1 recall=0.92 judge=2
+[33/52] GT033 rank=3 recall=0.55 judge=2
+[34/52] GT034 rank=1 recall=0.90 judge=2
+[35/52] GT035 rank=None recall=0.30 judge=0
+[36/52] GT036 rank=1 recall=1.00 judge=2
+[37/52] GT037 rank=None recall=0.30 judge=1
+[38/52] GT038 rank=1 recall=0.90 judge=2
+[39/52] GT039 rank=1 recall=1.00 judge=2
+[40/52] GT040 rank=1 recall=0.68 judge=2
+[41/52] GT041 rank=1 recall=1.00 judge=None
+[42/52] GT042 rank=3 recall=1.00 judge=2
+[43/52] GT043 rank=1 recall=1.00 judge=2
+[44/52] GT044 rank=1 recall=0.83 judge=2
+[45/52] GT045 rank=1 recall=1.00 judge=2
+[46/52] GT046 rank=1 recall=1.00 judge=2
+[47/52] GT047 rank=1 recall=0.47 judge=2
+[48/52] GT048 rank=1 recall=0.93 judge=2
+[49/52] GT049 rank=1 recall=1.00 judge=2
+[50/52] GT050 rank=1 recall=0.41 judge=1
+[51/52] GT051 rank=None recall=0.73 judge=0
+[52/52] GT052 rank=None recall=0.92 judge=0
+{
+ "questions": 52,
+ "hit@1": 0.6346153846153846,
+ "hit@3": 0.7884615384615384,
+ "hit@6": 0.8653846153846154,
+ "mrr": 0.716025641025641,
+ "page_hit": 0.75,
+ "page_near": 0.9615384615384616,
+ "answer_recall": 0.8427692307692307,
+ "cited": 0.9807692307692307,
+ "cited_correct": 0.8653846153846154,
+ "extractive": 0,
+ "judged": 50,
+ "judge_mean": 1.76,
+ "judge_2": 43,
+ "judge_1": 2,
+ "judge_0": 5
+}
+
+hasil: eval\results\perpres_76_2013.csv
+laporan: eval\results\perpres_76_2013.md

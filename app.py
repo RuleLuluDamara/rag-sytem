@@ -1,7 +1,3 @@
-"""Streamlit web UI for the Indonesian legal multimodal RAG system.
-
-Run:  streamlit run app.py
-"""
 from __future__ import annotations
 
 import logging
@@ -19,8 +15,6 @@ from legal_rag.rag import answer
 from legal_rag.vision import KIND_LABEL_ID
 
 logging.basicConfig(level=logging.INFO)
-for noisy in ("httpx", "huggingface_hub", "urllib3"):
-    logging.getLogger(noisy).setLevel(logging.WARNING)
 
 st.set_page_config(page_title="RAG Dokumen Hukum", page_icon="⚖️", layout="wide")
 
@@ -57,7 +51,6 @@ def pages_of(doc_id: str, _stamp: str) -> list[dict]:
     return load_pages(doc_id)
 
 
-# --------------------------------------------------------------------------- sidebar
 docs = list_documents()
 doc_by_id = {d["doc_id"]: d for d in docs}
 
@@ -73,7 +66,7 @@ with st.sidebar:
                 info = ingest_pdf(tmp.name, progress=lambda f, m, n=up.name: bar.progress(min(f, 1.0), text=f"{n}: {m}"),
                                   original_name=up.name)
                 st.success(f"✓ {info['title']} — {info['pages']} hlm, {info['chunks']} chunk")
-            except Exception as e:  # keep the app alive for the other files
+            except Exception as e:  
                 st.error(f"{up.name}: gagal diproses — {e}")
             finally:
                 Path(tmp.name).unlink(missing_ok=True)
@@ -102,7 +95,7 @@ with st.sidebar:
     st.divider()
     st.subheader("Model")
     if llm.is_configured():
-        st.markdown(f"🟢 Google Gemini · `{llm.model()}`")
+        st.markdown(f"Google Gemini · `{llm.model()}`")
         st.caption("Membaca elemen visual saat pemrosesan dan menyusun jawaban. Teks dokumen dan "
                    "potongan gambar dikirim ke Google.")
     else:
@@ -110,7 +103,6 @@ with st.sidebar:
                    "visual dideskripsikan secara heuristik.")
     top_k = st.slider("Jumlah sumber (top-k)", 3, 12, settings.top_k)
 
-# --------------------------------------------------------------------------- main
 tab_chat, tab_browse = st.tabs(["💬 Tanya jawab", "🔎 Jelajahi dokumen"])
 
 

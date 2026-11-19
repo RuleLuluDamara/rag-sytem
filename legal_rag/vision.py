@@ -1,16 +1,3 @@
-"""Detection of non-text visual elements on scanned legal pages.
-
-CPU-only, classical computer vision (OpenCV):
-
-* **tables**      — ruled grids found with morphological line extraction; the
-                    OCR segments inside are assigned to cells → Markdown table.
-* **stamps**      — coloured-ink (blue/purple/red) blobs; round ones are "stempel".
-* **signatures**  — sparse dark or coloured ink strokes that OCR did not read as text.
-* **figures**     — dense non-text ink (logos, the Garuda emblem, diagrams, photos).
-
-Each element is then described by Gemini (multimodal) when a key is configured
-(see :mod:`legal_rag.llm`), which turns it into searchable text.
-"""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -32,16 +19,15 @@ KIND_LABEL_ID = {
 class Element:
     kind: str                       # table | stamp | signature | figure
     bbox: list[float]
-    text: str = ""                  # table markdown or OCR text inside the element
-    description: str = ""           # Gemini or heuristic description
-    image: str = ""                 # relative path to the saved crop
+    text: str = ""                  # text inside element
+    description: str = ""           # gemini or heuristic description
+    image: str = ""                 
     meta: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-# --------------------------------------------------------------------------- helpers
 def _center(b):
     return (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
 
@@ -58,7 +44,6 @@ def _iou_area(a, b) -> float:
 
 
 def _line_positions(profile: np.ndarray, min_fill: float) -> list[int]:
-    """Cluster indices where ``profile >= min_fill`` into single line positions."""
     idx = np.where(profile >= min_fill)[0]
     if idx.size == 0:
         return []
@@ -71,7 +56,6 @@ def _line_positions(profile: np.ndarray, min_fill: float) -> list[int]:
     return [int((s + e) / 2) for s, e in groups]
 
 
-# --------------------------------------------------------------------------- tables
 def detect_tables(gray: np.ndarray, lines: list[Line]) -> list[Element]:
     h, w = gray.shape
     bw = cv2.adaptiveThreshold(255 - gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 15, -2)
@@ -87,7 +71,7 @@ def detect_tables(gray: np.ndarray, lines: list[Line]) -> list[Element]:
             continue
         hy = _line_positions(horiz[y:y + ch, x:x + cw].sum(axis=1) / 255, 0.5 * cw)
         vx = _line_positions(vert[y:y + ch, x:x + cw].sum(axis=0) / 255, 0.5 * ch)
-        if len(hy) < 3:  # need at least two rows of cells (or header + one row)
+        if len(hy) < 3: 
             continue
         rows_y = [y + v for v in hy]
         cols_x = [x + v for v in vx] if len(vx) >= 2 else [x, x + cw]
@@ -118,7 +102,6 @@ def _table_markdown(lines: list[Line], rows_y: list[int], cols_x: list[int]) -> 
     return "\n".join(md), len(grid), n_c
 
 
-# --------------------------------------------------------------------------- stamps & ink
 def colored_ink_mask(bgr: np.ndarray) -> np.ndarray:
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
     s, v = hsv[:, :, 1], hsv[:, :, 2]
@@ -126,7 +109,6 @@ def colored_ink_mask(bgr: np.ndarray) -> np.ndarray:
 
 
 def detect_colored(bgr: np.ndarray, lines: list[Line]) -> tuple[list[Element], np.ndarray]:
-    """Stamps (and coloured-pen signatures). Returns elements and the coloured mask."""
     h, w = bgr.shape[:2]
     mask = colored_ink_mask(bgr)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
@@ -149,22 +131,16 @@ def detect_colored(bgr: np.ndarray, lines: list[Line]) -> tuple[list[Element], n
 
 
 def read_round_stamp(bgr_crop: np.ndarray, ocr_fn) -> str:
-    """OCR the curved ring text of a round stamp by unwrapping it with a polar transform.
 
-    The ring is mapped to a horizontal strip (angle → x, radius → y). The strip is
-    concatenated with itself so words crossing the 0° seam stay whole, and both
-    reading directions are tried (top-arc text runs clockwise, bottom-arc text often
-    counter-clockwise). The inner (straight) text is read from the plain crop.
-    """
     h, w = bgr_crop.shape[:2]
     r = min(h, w) / 2
     center = (w / 2, h / 2)
     circ = int(2 * np.pi * r)
     polar = cv2.warpPolar(bgr_crop, (int(r), circ), center, r, cv2.WARP_POLAR_LINEAR)
-    strip = cv2.transpose(polar)                   # x = angle (clockwise), y = radius
-    strip = strip[int(r * 0.55):, :]               # keep the outer ring band
+    strip = cv2.transpose(polar)                   
+    strip = strip[int(r * 0.55):, :]              
     texts = []
-    for variant in (cv2.flip(strip, 0), cv2.flip(strip, 1)):   # clockwise / counter-clockwise
+    for variant in (cv2.flip(strip, 0), cv2.flip(strip, 1)):  
         doubled = np.hstack([variant, variant])
         doubled = cv2.resize(doubled, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
         for ln in ocr_fn(doubled):
@@ -176,11 +152,10 @@ def read_round_stamp(bgr_crop: np.ndarray, ocr_fn) -> str:
 
 
 def _collapse_repeat(t: str) -> str:
-    """'A B * A B *' (ring text read twice from the doubled strip) → 'A B *'."""
     from difflib import SequenceMatcher
 
     n = len(t)
-    best_p, best = 0, 0.8                    # the period whose shifted copy matches best
+    best_p, best = 0, 0.8                    
     for p in range(max(4, n // 3), min(n, n // 2 + 3)):
         ratio = SequenceMatcher(None, t[: n - p], t[p:]).ratio()
         if ratio > best:
@@ -189,7 +164,6 @@ def _collapse_repeat(t: str) -> str:
 
 
 def _dedupe_phrases(texts: list[str]) -> str:
-    """Drop phrases that are substrings of longer ones (the doubled strip repeats text)."""
     uniq: list[str] = []
     for t in sorted({t.strip(" *·") for t in texts if t.strip(" *·")}, key=len, reverse=True):
         if not any(t.lower() in u.lower() for u in uniq):
@@ -208,7 +182,6 @@ def _has_circle(mask_crop: np.ndarray) -> bool:
 
 def detect_dark_graphics(gray: np.ndarray, lines: list[Line], exclude: list[list[float]],
                          colored_mask: np.ndarray) -> list[Element]:
-    """Signatures and figures drawn in dark ink that OCR did not explain as text."""
     h, w = gray.shape
     _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     bw[cv2.dilate(colored_mask, np.ones((5, 5), np.uint8)) > 0] = 0
@@ -239,15 +212,12 @@ def detect_dark_graphics(gray: np.ndarray, lines: list[Line], exclude: list[list
     return out
 
 
-# --------------------------------------------------------------------------- orchestration
 def detect_elements(bgr: np.ndarray, raw_lines: list[Line]) -> list[Element]:
-    """Detect all visual elements on a (deskewed) page."""
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     tables = detect_tables(gray, raw_lines)
     colored, cmask = detect_colored(bgr, raw_lines)
     dark = detect_dark_graphics(gray, raw_lines, [t.bbox for t in tables], cmask)
-    # Drop dark detections mostly covered by a coloured element (e.g. signature over a stamp
-    # is kept, but stamp outlines leaking into the dark mask are not).
+
     keep = []
     for d in dark:
         area = (d.bbox[2] - d.bbox[0]) * (d.bbox[3] - d.bbox[1])
@@ -266,7 +236,6 @@ def crop(bgr: np.ndarray, bbox: list[float], pad: int = 12) -> np.ndarray:
 
 
 def nearby_text(lines: list[Line], bbox: list[float], radius: float) -> str:
-    """Text of lines vertically close to an element (gives a signature/stamp its context)."""
     cy0, cy1 = bbox[1] - radius, bbox[3] + radius
     near = [l for l in lines if l.bbox[3] >= cy0 and l.bbox[1] <= cy1 and not _inside(l.bbox, bbox)]
     return " / ".join(l.text for l in sorted(near, key=lambda l: (l.bbox[1], l.bbox[0])))

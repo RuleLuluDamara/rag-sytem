@@ -1,15 +1,3 @@
-"""PDF → pages (OCR text + visual elements) → structured chunks → embeddings.
-
-On-disk layout per document (``settings.data_dir/<doc_id>/``)::
-
-    source.pdf            original file
-    pages/p0001.jpg       deskewed page images (shown in the UI with highlights)
-    crops/p0001_stamp0.png
-    pages.json            per-page lines + elements (cached, so re-runs resume)
-    chunks.json           structure-aware chunks
-    embeddings.npy        one row per chunk
-    meta.json             title, jenis, nomor, tahun, tentang, page count, …
-"""
 from __future__ import annotations
 
 import hashlib
@@ -108,8 +96,7 @@ def process_page(page: pymupdf.Page, n: int, out_dir: Path) -> dict:
 
 def ingest_pdf(pdf_path: str | Path, progress: Progress | None = None,
                original_name: str | None = None) -> dict:
-    """Ingest one PDF (idempotent: unchanged files and finished pages are reused)."""
-    from .index import embed_texts  # local import keeps the model lazy
+    from .index import embed_texts
 
     progress = progress or (lambda f, m: log.info("%3.0f%% %s", f * 100, m))
     pdf_path = Path(pdf_path)
@@ -133,7 +120,7 @@ def ingest_pdf(pdf_path: str | Path, progress: Progress | None = None,
             continue
         progress(i / (n_pages + 1), f"Halaman {n}/{n_pages}: OCR & deteksi elemen visual…")
         pages.append(process_page(page, n, out))
-        _write_json(pages_file, pages)  # checkpoint after every page
+        _write_json(pages_file, pages)
     doc.close()
 
     progress(n_pages / (n_pages + 1), "Menyusun struktur (BAB/Pasal/ayat) & membuat embedding…")

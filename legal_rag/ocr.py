@@ -1,8 +1,3 @@
-"""Page rendering, scan clean-up (deskew) and OCR.
-
-All coordinates produced here are pixel coordinates in the *deskewed* page image
-rendered at ``settings.dpi``; bboxes are ``[x0, y0, x1, y1]``.
-"""
 from __future__ import annotations
 
 import logging
@@ -28,16 +23,13 @@ class Line:
         return asdict(self)
 
 
-# --------------------------------------------------------------------------- rendering
 def render_page(page: pymupdf.Page, dpi: int) -> np.ndarray:
-    """Render a PDF page to a BGR uint8 image."""
     pix = page.get_pixmap(dpi=dpi, colorspace=pymupdf.csRGB, alpha=False)
     img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, 3)
     return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
 
 def text_layer_lines(page: pymupdf.Page, dpi: int) -> list[Line]:
-    """Lines from an embedded text layer (born-digital or already-OCR'd PDFs)."""
     scale = dpi / 72.0
     out: list[Line] = []
     for block in page.get_text("dict").get("blocks", []):
@@ -49,9 +41,7 @@ def text_layer_lines(page: pymupdf.Page, dpi: int) -> list[Line]:
     return out
 
 
-# --------------------------------------------------------------------------- deskew
 def estimate_skew(gray: np.ndarray, max_angle: float = 5.0) -> float:
-    """Projection-profile skew estimate (degrees, counter-clockwise positive)."""
     small = cv2.resize(gray, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
     _, bw = cv2.threshold(small, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     h, w = bw.shape
@@ -80,7 +70,6 @@ def deskew(bgr: np.ndarray) -> tuple[np.ndarray, float]:
     return out, angle
 
 
-# --------------------------------------------------------------------------- OCR
 _engine = None
 _engine_lock = threading.Lock()
 
@@ -94,8 +83,6 @@ def _get_engine():
             lang = getattr(LangRec, settings.ocr_lang.upper())
             _engine = RapidOCR(params={
                 "Global.log_level": "error",
-                # Pages are deskewed first; the per-line 180° classifier misfires on
-                # long Indonesian lines and turns them into garbage, so it is disabled.
                 "Global.use_cls": False,
                 "Det.box_thresh": 0.4,
                 "Det.ocr_version": OCRVersion.PPOCRV5,
@@ -108,7 +95,6 @@ def _get_engine():
 
 
 def ocr_image(bgr: np.ndarray) -> list[Line]:
-    """Run OCR and return text segments with confidences and boxes."""
     res = _get_engine()(bgr)
     if res is None or res.boxes is None or res.txts is None:
         return []
@@ -123,9 +109,7 @@ def ocr_image(bgr: np.ndarray) -> list[Line]:
     return lines
 
 
-# --------------------------------------------------------------------------- reading order
 def merge_rows(lines: list[Line]) -> list[Line]:
-    """Merge segments that sit on the same visual row and sort into reading order."""
     if not lines:
         return []
     items = sorted(lines, key=lambda l: (l.bbox[1] + l.bbox[3]) / 2)
