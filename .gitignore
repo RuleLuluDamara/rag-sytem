@@ -12,5 +12,7 @@ test/
 
 .claude/
 *.tmp
+docs\ARCHITECTURE.md
+docs\architecture.svg
 
 ~$*
